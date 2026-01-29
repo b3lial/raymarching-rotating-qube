@@ -14,24 +14,32 @@ HEIGHT = 600
 # Create window
 window = pyglet.window.Window(width=WIDTH, height=HEIGHT, caption="Ray Marching")
 
-# Create a black framebuffer (RGBA format)
-framebuffer = np.zeros((HEIGHT, WIDTH, 3), dtype=np.uint8)
+# Double buffering: one buffer for drawing, one for updating
+write_buffer = np.zeros((HEIGHT, WIDTH, 3), dtype=np.uint8)
+read_buffer = np.zeros((HEIGHT, WIDTH, 3), dtype=np.uint8)
 
 
 def update_framebuffer():
     """Update the framebuffer data. Currently just black, will contain ray marching later."""
-    # For now, framebuffer stays black
-    # Later this will be where we compute ray marching results
-    pass
+    global write_buffer
+
+    # Compute your ray marching here, writing to write_buffer
+    # Example: Draw a red square
+    write_buffer[100:200, 100:200] = [255, 0, 0]  # Red square
+
+    # Later, this is where you'll loop through each pixel and compute the ray marching:
+    # for y in range(HEIGHT):
+    #     for x in range(WIDTH):
+    #         color = ray_march(x, y)
+    #         write_buffer[y, x] = color
 
 
 @window.event
 def on_draw():
     """Called when the window needs to be redrawn."""
-    window.clear()
+    global read_buffer
 
-    # Update framebuffer
-    update_framebuffer()
+    window.clear()
 
     # Convert numpy array to pyglet image
     # Flip vertically because OpenGL origin is bottom-left
@@ -39,7 +47,7 @@ def on_draw():
         WIDTH,
         HEIGHT,
         'RGB',
-        framebuffer.tobytes(),
+        read_buffer.tobytes(),
         pitch=-WIDTH * 3  # Negative pitch to flip vertically
     )
 
@@ -49,7 +57,13 @@ def on_draw():
 
 def update(dt):
     """Called every frame for animations/updates."""
-    pass
+    global write_buffer, read_buffer
+
+    # Update the write buffer with new ray marching data
+    update_framebuffer()
+
+    # Swap buffers atomically
+    write_buffer, read_buffer = read_buffer, write_buffer
 
 
 # Schedule update function to be called every frame
