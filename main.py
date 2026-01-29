@@ -107,10 +107,15 @@ def update_framebuffer():
 
             # Ray direction from camera to screen point
             # Since camera is at origin, direction = screen_point - camera_origin = screen_point
-            ray_direction = screen_point
+            ray_direction = np.array(screen_point, dtype=np.float32)
 
-            # Create ray for this pixel
-            ray = Ray(origin=camera_origin, direction=ray_direction)
+            # Normalize the ray direction to have length 1
+            # Length (magnitude) = sqrt(x^2 + y^2 + z^2)
+            length = np.sqrt(np.sum(ray_direction ** 2))
+            ray_direction_normalized = ray_direction / length
+
+            # Create ray for this pixel with normalized direction
+            ray = Ray(origin=camera_origin, direction=ray_direction_normalized)
 
             # For now, visualize the ray direction as colors
             # Map u and v to colors for visualization
