@@ -108,6 +108,71 @@ def world_to_object_space(ray, object):
     return Ray(origin=object_space_origin, direction=object_space_direction)
 
 
+def ray_aabb_intersection(ray, aabb_min, aabb_max):
+    """
+    Ray-AABB (Axis-Aligned Bounding Box) intersection using the slab method.
+
+    Tests if a ray intersects an axis-aligned box and returns the intersection distances.
+    The slab method treats the AABB as the intersection of three slabs (one per axis).
+
+    Args:
+        ray: Ray to test (in the same coordinate space as the AABB)
+        aabb_min: Minimum corner of the AABB (3D point)
+        aabb_max: Maximum corner of the AABB (3D point)
+
+    Returns:
+        (t_near, t_far) if intersection occurs, where:
+            t_near: distance along ray to entry point
+            t_far: distance along ray to exit point
+        None if no intersection
+    """
+    # Initialize to extreme values
+    t_min = -np.inf
+    t_max = np.inf
+
+    # Test intersection with each slab (x, y, z)
+    for axis in range(3):
+        # Get the ray direction component for this axis
+        direction_component = ray.direction[axis]
+
+        # Get the ray origin component for this axis
+        origin_component = ray.origin[axis]
+
+        # Check if ray is parallel to this slab (direction ≈ 0)
+        if abs(direction_component) < 1e-8:
+            # Ray is parallel to slab
+            # Check if ray origin is outside the slab bounds
+            if origin_component < aabb_min[axis] or origin_component > aabb_max[axis]:
+                # Ray is parallel and outside - no intersection
+                return None
+            # Ray is parallel and inside - continue to next axis
+        else:
+            # Calculate intersection distances with the two planes of this slab
+            # t1 = intersection with min plane, t2 = intersection with max plane
+            t1 = (aabb_min[axis] - origin_component) / direction_component
+            t2 = (aabb_max[axis] - origin_component) / direction_component
+
+            # Ensure t1 is the near plane and t2 is the far plane
+            if t1 > t2:
+                t1, t2 = t2, t1
+
+            # Update the overall intersection interval
+            t_min = max(t_min, t1)
+            t_max = min(t_max, t2)
+
+            # Check if the slabs don't overlap
+            if t_min > t_max:
+                return None
+
+    # Check if intersection is behind the ray origin
+    if t_max < 0:
+        return None
+
+    # Return the intersection distances
+    # t_min is the entry point, t_max is the exit point
+    return (t_min, t_max)
+
+
 def pixel_to_normalized_coords(pixel_x, pixel_y):
     """
     Convert pixel coordinates to normalized coordinates [-1, 1] with aspect ratio correction.
@@ -177,6 +242,12 @@ def update_framebuffer():
             # Convert ray into object space of cube so we can calculate
             # whether they intersect
             object_space_ray = world_to_object_space(ray, cube)
+
+            # Check whether a ray hits the cube
+            result = ray_aabb_intersection(object_space_ray, cube.min_corner, cube.max_corner)
+            if result:
+                t_near, t_far = result
+                # Ray hits the cube at distance t_near
 
             # For now, visualize the ray direction as colors
             # Map u and v to colors for visualization
