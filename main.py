@@ -314,8 +314,10 @@ def update_framebuffer():
                 # Use t_near (entry distance) for depth-based shading
                 # Closer surfaces are brighter, farther surfaces are dimmer
                 # t_near is the distance from the camera to the cube surface
-                max_distance = 10.0
+                max_distance = 6.0
                 intensity = 1.0 - (t_near / max_distance)
+                # Square the intensity to exaggerate contrast at the edges
+                intensity = intensity * intensity
                 if intensity < 0.0:
                     intensity = 0.0
                 elif intensity > 1.0:
