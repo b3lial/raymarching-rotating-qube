@@ -252,6 +252,9 @@ def update_framebuffer():
     # Camera position
     camera_origin = [0.0, 0.0, 0.0]
 
+    # Build rotation matrix once per frame (same for all pixels)
+    inverse_rotation = rotation_matrix_y(-rotation_angle)
+
     # Iterate over every pixel
     for pixel_y in range(HEIGHT):
         for pixel_x in range(WIDTH):
@@ -280,7 +283,6 @@ def update_framebuffer():
 
             # Rotate the ray in object space (inverse rotation)
             # To make the cube appear to rotate, we rotate the ray in the opposite direction
-            inverse_rotation = rotation_matrix_y(-rotation_angle)
             object_space_ray.origin = inverse_rotation @ object_space_ray.origin
             object_space_ray.direction = inverse_rotation @ object_space_ray.direction
 
