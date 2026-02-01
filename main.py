@@ -43,12 +43,43 @@ class Ray:
     def __repr__(self):
         return f"Ray(origin={self.origin}, direction={self.direction})"
 
-# Create window
-window = pyglet.window.Window(width=WIDTH, height=HEIGHT, caption="Ray Marching")
 
-# Double buffering: one buffer for drawing, one for updating
-write_buffer = np.zeros((HEIGHT, WIDTH, 3), dtype=np.uint8)
-read_buffer = np.zeros((HEIGHT, WIDTH, 3), dtype=np.uint8)
+class Cube:
+    """
+    Represents a cube in world space.
+
+    In object space, the cube is centered at (0, 0, 0) and extends from
+    min_corner to max_corner.
+    """
+    def __init__(self, world_position, min_corner=None, max_corner=None):
+        """
+        Args:
+            world_position: 3D position of the cube center in world space
+            min_corner: Minimum corner in object space (default: [-1, -1, -1])
+            max_corner: Maximum corner in object space (default: [1, 1, 1])
+        """
+        self.world_position = np.array(world_position, dtype=np.float32)
+
+        # Object space bounds (centered at origin)
+        if min_corner is None:
+            min_corner = [-1.0, -1.0, -1.0]
+        if max_corner is None:
+            max_corner = [1.0, 1.0, 1.0]
+
+        self.min_corner = np.array(min_corner, dtype=np.float32)
+        self.max_corner = np.array(max_corner, dtype=np.float32)
+
+        # Calculate half extents (distance from center to edge)
+        self.half_extents = (self.max_corner - self.min_corner) / 2.0
+
+    def __repr__(self):
+        return f"Cube(world_position={self.world_position}, min={self.min_corner}, max={self.max_corner})"
+
+# Global variables (initialized in main)
+window = None
+write_buffer = None
+read_buffer = None
+cube = None
 
 
 def pixel_to_normalized_coords(pixel_x, pixel_y):
@@ -127,10 +158,9 @@ def update_framebuffer():
             write_buffer[pixel_y, pixel_x] = [red, green, blue]
 
 
-@window.event
 def on_draw():
     """Called when the window needs to be redrawn."""
-    global read_buffer
+    global window, read_buffer
 
     window.clear()
 
@@ -159,11 +189,40 @@ def update(dt):
     write_buffer, read_buffer = read_buffer, write_buffer
 
 
-# Schedule update function to be called every frame
-pyglet.clock.schedule_interval(update, 1/60.0)  # 60 FPS
+def initialize():
+    """Initialize all global resources."""
+    global window, write_buffer, read_buffer, cube
+
+    # Create window
+    window = pyglet.window.Window(width=WIDTH, height=HEIGHT, caption="Ray Marching")
+
+    # Double buffering: one buffer for drawing, one for updating
+    write_buffer = np.zeros((HEIGHT, WIDTH, 3), dtype=np.uint8)
+    read_buffer = np.zeros((HEIGHT, WIDTH, 3), dtype=np.uint8)
+
+    # Create a cube in world space
+    # Object space: from (-1, -1, -1) to (1, 1, 1)
+    # World space: positioned at (0, 0, 5)
+    cube = Cube(world_position=[0.0, 0.0, 5.0])
+
+    # Register event handlers
+    window.event(on_draw)
+
+    # Schedule update function to be called every frame
+    pyglet.clock.schedule_interval(update, 1/60.0)  # 60 FPS
+
+
+def main():
+    """Main entry point for the ray marching application."""
+    print("Starting ray marching window...")
+    print(f"Window size: {WIDTH}x{HEIGHT}")
+
+    # Initialize all resources
+    initialize()
+
+    # Start the application
+    pyglet.app.run()
 
 
 if __name__ == '__main__':
-    print("Starting ray marching window...")
-    print(f"Window size: {WIDTH}x{HEIGHT}")
-    pyglet.app.run()
+    main()
