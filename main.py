@@ -51,14 +51,16 @@ class Cube:
     In object space, the cube is centered at (0, 0, 0) and extends from
     min_corner to max_corner.
     """
-    def __init__(self, world_position, min_corner=None, max_corner=None):
+    def __init__(self, world_position, color=None, min_corner=None, max_corner=None):
         """
         Args:
             world_position: 3D position of the cube center in world space
+            color: RGB color of the cube (default: [255, 0, 0] red)
             min_corner: Minimum corner in object space (default: [-1, -1, -1])
             max_corner: Maximum corner in object space (default: [1, 1, 1])
         """
         self.world_position = np.array(world_position, dtype=np.float32)
+        self.color = np.array(color if color is not None else [255, 0, 0], dtype=np.uint8)
 
         # Object space bounds (centered at origin)
         if min_corner is None:
@@ -247,16 +249,23 @@ def update_framebuffer():
             result = ray_aabb_intersection(object_space_ray, cube.min_corner, cube.max_corner)
             if result:
                 t_near, t_far = result
-                # Ray hits the cube at distance t_near
 
-            # For now, visualize the ray direction as colors
-            # Map u and v to colors for visualization
-            aspect_ratio = WIDTH / HEIGHT
-            red = int((u / aspect_ratio + 1.0) * 0.5 * 255)
-            green = int((v + 1.0) * 0.5 * 255)
-            blue = 0
+                # Use t_near (entry distance) for depth-based shading
+                # Closer surfaces are brighter, farther surfaces are dimmer
+                # t_near is the distance from the camera to the cube surface
+                max_distance = 10.0
+                intensity = 1.0 - (t_near / max_distance)
+                intensity = max(0.0, min(1.0, intensity))
 
-            write_buffer[pixel_y, pixel_x] = [red, green, blue]
+                # Apply intensity to the cube's color
+                red = int(cube.color[0] * intensity)
+                green = int(cube.color[1] * intensity)
+                blue = int(cube.color[2] * intensity)
+
+                write_buffer[pixel_y, pixel_x] = [red, green, blue]
+            else:
+                # Ray misses the cube - black background
+                write_buffer[pixel_y, pixel_x] = [0, 0, 0]
 
 
 def on_draw():
