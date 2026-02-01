@@ -1,11 +1,5 @@
 import pyglet
-try:
-    import numpy as np
-except ImportError:
-    print("Using system numpy")
-    import sys
-    sys.path.insert(0, '/usr/lib/python3/dist-packages')
-    import numpy as np
+import math
 
 # Window dimensions
 WIDTH = 320
@@ -22,11 +16,11 @@ class Ray:
     def __init__(self, origin, direction):
         """
         Args:
-            origin: 3D position vector (Ortsvector) - where the ray starts
-            direction: 3D direction vector (Richtungsvector) - direction the ray travels
+            origin: 3D position vector (Ortsvector) - where the ray starts [x, y, z]
+            direction: 3D direction vector (Richtungsvector) - direction the ray travels [x, y, z]
         """
-        self.origin = np.array(origin, dtype=np.float32)
-        self.direction = np.array(direction, dtype=np.float32)
+        self.origin = list(origin)
+        self.direction = list(direction)
 
     def at(self, t):
         """
@@ -38,7 +32,11 @@ class Ray:
         Returns:
             3D point at position origin + t * direction
         """
-        return self.origin + t * self.direction
+        return [
+            self.origin[0] + t * self.direction[0],
+            self.origin[1] + t * self.direction[1],
+            self.origin[2] + t * self.direction[2]
+        ]
 
     def __repr__(self):
         return f"Ray(origin={self.origin}, direction={self.direction})"
@@ -59,20 +57,18 @@ class Cube:
             min_corner: Minimum corner in object space (default: [-1, -1, -1])
             max_corner: Maximum corner in object space (default: [1, 1, 1])
         """
-        self.world_position = np.array(world_position, dtype=np.float32)
-        self.color = np.array(color if color is not None else [255, 0, 0], dtype=np.uint8)
+        self.world_position = list(world_position)
+        self.color = list(color) if color is not None else [255, 0, 0]
 
         # Object space bounds (centered at origin)
-        if min_corner is None:
-            min_corner = [-1.0, -1.0, -1.0]
-        if max_corner is None:
-            max_corner = [1.0, 1.0, 1.0]
-
-        self.min_corner = np.array(min_corner, dtype=np.float32)
-        self.max_corner = np.array(max_corner, dtype=np.float32)
+        self.min_corner = list(min_corner) if min_corner is not None else [-1.0, -1.0, -1.0]
+        self.max_corner = list(max_corner) if max_corner is not None else [1.0, 1.0, 1.0]
 
         # Calculate half extents (distance from center to edge)
-        self.half_extents = (self.max_corner - self.min_corner) / 2.0
+        self.half_extents = [
+            (self.max_corner[i] - self.min_corner[i]) / 2.0
+            for i in range(3)
+        ]
 
     def __repr__(self):
         return f"Cube(world_position={self.world_position}, min={self.min_corner}, max={self.max_corner})"
@@ -98,23 +94,41 @@ def rotation_matrix_y(angle_degrees):
         angle_degrees: Rotation angle in degrees
 
     Returns:
-        3x3 numpy rotation matrix
+        3x3 rotation matrix as list of lists
     """
     # Convert degrees to radians
-    angle_radians = np.radians(angle_degrees)
+    angle_radians = math.radians(angle_degrees)
 
     # Calculate sin and cos
-    cos_a = np.cos(angle_radians)
-    sin_a = np.sin(angle_radians)
+    cos_a = math.cos(angle_radians)
+    sin_a = math.sin(angle_radians)
 
     # Build the rotation matrix
-    matrix = np.array([
+    matrix = [
         [ cos_a, 0.0, sin_a],
         [   0.0, 1.0,   0.0],
         [-sin_a, 0.0, cos_a]
-    ], dtype=np.float32)
+    ]
 
     return matrix
+
+
+def mat3_mul_vec3(matrix, vec):
+    """
+    Multiply a 3x3 matrix by a 3D vector.
+
+    Args:
+        matrix: 3x3 matrix as list of lists
+        vec: 3D vector as list
+
+    Returns:
+        Resulting 3D vector as list
+    """
+    return [
+        matrix[0][0] * vec[0] + matrix[0][1] * vec[1] + matrix[0][2] * vec[2],
+        matrix[1][0] * vec[0] + matrix[1][1] * vec[1] + matrix[1][2] * vec[2],
+        matrix[2][0] * vec[0] + matrix[2][1] * vec[1] + matrix[2][2] * vec[2]
+    ]
 
 
 def world_to_object_space(ray, object):
@@ -133,7 +147,11 @@ def world_to_object_space(ray, object):
     """
     # Transform origin: subtract the object's world position
     # This translates the ray so the object center becomes the origin
-    object_space_origin = ray.origin - object.world_position
+    object_space_origin = [
+        ray.origin[0] - object.world_position[0],
+        ray.origin[1] - object.world_position[1],
+        ray.origin[2] - object.world_position[2]
+    ]
 
     # Transform direction: for pure translation, direction remains unchanged
     # (If we had rotation/scale, we'd need to apply inverse transform here)
@@ -152,8 +170,8 @@ def ray_aabb_intersection(ray, aabb_min, aabb_max):
 
     Args:
         ray: Ray to test (in the same coordinate space as the AABB)
-        aabb_min: Minimum corner of the AABB (3D point)
-        aabb_max: Maximum corner of the AABB (3D point)
+        aabb_min: Minimum corner of the AABB (3D list)
+        aabb_max: Maximum corner of the AABB (3D list)
 
     Returns:
         (t_near, t_far) if intersection occurs, where:
@@ -162,8 +180,8 @@ def ray_aabb_intersection(ray, aabb_min, aabb_max):
         None if no intersection
     """
     # Initialize to extreme values
-    t_min = -np.inf
-    t_max = np.inf
+    t_min = -float('inf')
+    t_max = float('inf')
 
     # Test intersection with each slab (x, y, z)
     for axis in range(3):
@@ -263,19 +281,21 @@ def update_framebuffer():
 
             # The screen plane is at z=1
             # Point on screen for this pixel is (u, v, 1)
-            screen_point = [u, v, 1.0]
-
             # Ray direction from camera to screen point
-            # Since camera is at origin, direction = screen_point - camera_origin = screen_point
-            ray_direction = np.array(screen_point, dtype=np.float32)
+            # Since camera is at origin, direction = screen_point
+            dx = u
+            dy = v
+            dz = 1.0
 
             # Normalize the ray direction to have length 1
             # Length (magnitude) = sqrt(x^2 + y^2 + z^2)
-            length = np.sqrt(np.sum(ray_direction ** 2))
-            ray_direction_normalized = ray_direction / length
+            length = math.sqrt(dx * dx + dy * dy + dz * dz)
+            dx = dx / length
+            dy = dy / length
+            dz = dz / length
 
             # Create ray for this pixel with normalized direction
-            ray = Ray(origin=camera_origin, direction=ray_direction_normalized)
+            ray = Ray(origin=camera_origin, direction=[dx, dy, dz])
 
             # Convert ray into object space of cube so we can calculate
             # whether they intersect
@@ -283,8 +303,8 @@ def update_framebuffer():
 
             # Rotate the ray in object space (inverse rotation)
             # To make the cube appear to rotate, we rotate the ray in the opposite direction
-            object_space_ray.origin = inverse_rotation @ object_space_ray.origin
-            object_space_ray.direction = inverse_rotation @ object_space_ray.direction
+            object_space_ray.origin = mat3_mul_vec3(inverse_rotation, object_space_ray.origin)
+            object_space_ray.direction = mat3_mul_vec3(inverse_rotation, object_space_ray.direction)
 
             # Check whether a ray hits the cube
             result = ray_aabb_intersection(object_space_ray, cube.min_corner, cube.max_corner)
@@ -296,17 +316,27 @@ def update_framebuffer():
                 # t_near is the distance from the camera to the cube surface
                 max_distance = 10.0
                 intensity = 1.0 - (t_near / max_distance)
-                intensity = max(0.0, min(1.0, intensity))
+                if intensity < 0.0:
+                    intensity = 0.0
+                elif intensity > 1.0:
+                    intensity = 1.0
 
                 # Apply intensity to the cube's color
                 red = int(cube.color[0] * intensity)
                 green = int(cube.color[1] * intensity)
                 blue = int(cube.color[2] * intensity)
 
-                write_buffer[pixel_y, pixel_x] = [red, green, blue]
+                # Write pixel to buffer (3 bytes per pixel: R, G, B)
+                offset = (pixel_y * WIDTH + pixel_x) * 3
+                write_buffer[offset] = red
+                write_buffer[offset + 1] = green
+                write_buffer[offset + 2] = blue
             else:
                 # Ray misses the cube - black background
-                write_buffer[pixel_y, pixel_x] = [0, 0, 0]
+                offset = (pixel_y * WIDTH + pixel_x) * 3
+                write_buffer[offset] = 0
+                write_buffer[offset + 1] = 0
+                write_buffer[offset + 2] = 0
 
 
 def on_draw():
@@ -315,13 +345,13 @@ def on_draw():
 
     window.clear()
 
-    # Convert numpy array to pyglet image
+    # Convert bytearray to pyglet image
     # Flip vertically because OpenGL origin is bottom-left
     image_data = pyglet.image.ImageData(
         WIDTH,
         HEIGHT,
         'RGB',
-        read_buffer.tobytes(),
+        bytes(read_buffer),
         pitch=-WIDTH * 3  # Negative pitch to flip vertically
     )
 
@@ -350,13 +380,13 @@ def initialize():
     # Create window
     window = pyglet.window.Window(width=WIDTH, height=HEIGHT, caption="Ray Marching")
 
-    # Double buffering: one buffer for drawing, one for updating
-    write_buffer = np.zeros((HEIGHT, WIDTH, 3), dtype=np.uint8)
-    read_buffer = np.zeros((HEIGHT, WIDTH, 3), dtype=np.uint8)
+    # Double buffering: bytearrays for fast pixel access
+    write_buffer = bytearray(HEIGHT * WIDTH * 3)
+    read_buffer = bytearray(HEIGHT * WIDTH * 3)
 
     # Create a cube in world space
     # Object space: from (-1, -1, -1) to (1, 1, 1)
-    # World space: positioned at (0, 0, 5)
+    # World space: positioned at (0, 0, 3)
     cube = Cube(world_position=[0.0, 0.0, 3.0])
 
     # Register event handlers
