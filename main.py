@@ -82,6 +82,32 @@ read_buffer = None
 cube = None
 
 
+def world_to_object_space(ray, object):
+    """
+    Transform a ray from world space to an object's object space.
+
+    In object space, the object is centered at (0, 0, 0).
+    In world space, the object is centered at object.world_position.
+
+    Args:
+        ray: Ray in world space
+        object: The object whose object space we're transforming to
+
+    Returns:
+        Ray in object space (where object is centered at origin)
+    """
+    # Transform origin: subtract the object's world position
+    # This translates the ray so the object center becomes the origin
+    object_space_origin = ray.origin - object.world_position
+
+    # Transform direction: for pure translation, direction remains unchanged
+    # (If we had rotation/scale, we'd need to apply inverse transform here)
+    object_space_direction = ray.direction
+
+    # Create and return the transformed ray
+    return Ray(origin=object_space_origin, direction=object_space_direction)
+
+
 def pixel_to_normalized_coords(pixel_x, pixel_y):
     """
     Convert pixel coordinates to normalized coordinates [-1, 1] with aspect ratio correction.
