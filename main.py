@@ -8,8 +8,8 @@ except ImportError:
     import numpy as np
 
 # Window dimensions
-WIDTH = 800
-HEIGHT = 600
+WIDTH = 320
+HEIGHT = 255
 
 
 class Ray:
@@ -82,6 +82,39 @@ window = None
 write_buffer = None
 read_buffer = None
 cube = None
+rotation_angle = 0.0
+
+
+def rotation_matrix_y(angle_degrees):
+    """
+    Build a 3x3 rotation matrix around the Y-axis.
+
+    The rotation matrix for angle θ around Y is:
+        [ cos(θ)   0   sin(θ) ]
+        [   0      1     0    ]
+        [ -sin(θ)  0   cos(θ) ]
+
+    Args:
+        angle_degrees: Rotation angle in degrees
+
+    Returns:
+        3x3 numpy rotation matrix
+    """
+    # Convert degrees to radians
+    angle_radians = np.radians(angle_degrees)
+
+    # Calculate sin and cos
+    cos_a = np.cos(angle_radians)
+    sin_a = np.sin(angle_radians)
+
+    # Build the rotation matrix
+    matrix = np.array([
+        [ cos_a, 0.0, sin_a],
+        [   0.0, 1.0,   0.0],
+        [-sin_a, 0.0, cos_a]
+    ], dtype=np.float32)
+
+    return matrix
 
 
 def world_to_object_space(ray, object):
@@ -245,6 +278,12 @@ def update_framebuffer():
             # whether they intersect
             object_space_ray = world_to_object_space(ray, cube)
 
+            # Rotate the ray in object space (inverse rotation)
+            # To make the cube appear to rotate, we rotate the ray in the opposite direction
+            inverse_rotation = rotation_matrix_y(-rotation_angle)
+            object_space_ray.origin = inverse_rotation @ object_space_ray.origin
+            object_space_ray.direction = inverse_rotation @ object_space_ray.direction
+
             # Check whether a ray hits the cube
             result = ray_aabb_intersection(object_space_ray, cube.min_corner, cube.max_corner)
             if result:
@@ -290,13 +329,16 @@ def on_draw():
 
 def update(dt):
     """Called every frame for animations/updates."""
-    global write_buffer, read_buffer
+    global write_buffer, read_buffer, rotation_angle
 
     # Update the write buffer with new ray marching data
     update_framebuffer()
 
     # Swap buffers atomically
     write_buffer, read_buffer = read_buffer, write_buffer
+
+    # Increment rotation angle by 1 degree per frame
+    rotation_angle = (rotation_angle + 1.0) % 360.0
 
 
 def initialize():
@@ -313,7 +355,7 @@ def initialize():
     # Create a cube in world space
     # Object space: from (-1, -1, -1) to (1, 1, 1)
     # World space: positioned at (0, 0, 5)
-    cube = Cube(world_position=[0.0, 0.0, 5.0])
+    cube = Cube(world_position=[0.0, 0.0, 3.0])
 
     # Register event handlers
     window.event(on_draw)
