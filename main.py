@@ -174,6 +174,10 @@ def update_framebuffer():
             # Create ray for this pixel with normalized direction
             ray = Ray(origin=camera_origin, direction=ray_direction_normalized)
 
+            # Convert ray into object space of cube so we can calculate
+            # whether they intersect
+            object_space_ray = world_to_object_space(ray, cube)
+
             # For now, visualize the ray direction as colors
             # Map u and v to colors for visualization
             aspect_ratio = WIDTH / HEIGHT
