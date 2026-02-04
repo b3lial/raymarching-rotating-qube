@@ -113,6 +113,57 @@ def rotation_matrix_y(angle_degrees):
     return matrix
 
 
+def rotation_matrix_x(angle_degrees):
+    """
+    Build a 3x3 rotation matrix around the X-axis.
+
+    The rotation matrix for angle θ around X is:
+        [ 1     0        0     ]
+        [ 0   cos(θ)  -sin(θ) ]
+        [ 0   sin(θ)   cos(θ) ]
+
+    Args:
+        angle_degrees: Rotation angle in degrees
+
+    Returns:
+        3x3 rotation matrix as list of lists
+    """
+    # Convert degrees to radians
+    angle_radians = math.radians(angle_degrees)
+
+    # Calculate sin and cos
+    cos_a = math.cos(angle_radians)
+    sin_a = math.sin(angle_radians)
+
+    # Build the rotation matrix
+    matrix = [
+        [1.0,   0.0,    0.0],
+        [0.0, cos_a, -sin_a],
+        [0.0, sin_a,  cos_a]
+    ]
+
+    return matrix
+
+
+def mat3_mul_mat3(m1, m2):
+    """
+    Multiply two 3x3 matrices.
+
+    Args:
+        m1: First 3x3 matrix as list of lists
+        m2: Second 3x3 matrix as list of lists
+
+    Returns:
+        Resulting 3x3 matrix as list of lists
+    """
+    result = [[0.0 for _ in range(3)] for _ in range(3)]
+    for i in range(3):
+        for j in range(3):
+            for k in range(3):
+                result[i][j] += m1[i][k] * m2[k][j]
+    return result
+
+
 def mat3_mul_vec3(matrix, vec):
     """
     Multiply a 3x3 matrix by a 3D vector.
@@ -271,7 +322,12 @@ def update_framebuffer():
     camera_origin = [0.0, 0.0, 0.0]
 
     # Build rotation matrix once per frame (same for all pixels)
-    inverse_rotation = rotation_matrix_y(-rotation_angle)
+    # Combine rotation around Y-axis and tilted X-axis (25 degrees)
+    rotation_y = rotation_matrix_y(-rotation_angle)
+    rotation_x = rotation_matrix_x(-rotation_angle)
+
+    # Combine rotations: first Y, then X
+    inverse_rotation = mat3_mul_mat3(rotation_x, rotation_y)
 
     # Iterate over every pixel
     for pixel_y in range(HEIGHT):
