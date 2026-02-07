@@ -79,6 +79,7 @@ write_buffer = None
 read_buffer = None
 cube = None
 rotation_angle = 0.0
+precalculated_rays = None
 
 
 def rotation_matrix_y(angle_degrees):
@@ -314,44 +315,58 @@ def pixel_to_normalized_coords(pixel_x, pixel_y):
     return u, v
 
 
-def update_framebuffer():
-    """Update the framebuffer data. Currently just black, will contain ray marching later."""
-    global write_buffer
+def precalculate_rays():
+    """
+    Pre-calculate all camera rays for each pixel.
+    This is called once during initialization.
 
-    # Camera position
+    Returns:
+        2D list [HEIGHT][WIDTH] of Ray objects
+    """
     camera_origin = [0.0, 0.0, 0.0]
+    rays = [[None for _ in range(WIDTH)] for _ in range(HEIGHT)]
 
-    # Build rotation matrix once per frame (same for all pixels)
-    # Combine rotation around Y-axis and tilted X-axis (25 degrees)
-    rotation_y = rotation_matrix_y(-rotation_angle)
-    rotation_x = rotation_matrix_x(-rotation_angle)
-
-    # Combine rotations: first Y, then X
-    inverse_rotation = mat3_mul_mat3(rotation_x, rotation_y)
-
-    # Iterate over every pixel
     for pixel_y in range(HEIGHT):
         for pixel_x in range(WIDTH):
             # Get normalized coordinates for this pixel
             u, v = pixel_to_normalized_coords(pixel_x, pixel_y)
 
             # The screen plane is at z=1
-            # Point on screen for this pixel is (u, v, 1)
             # Ray direction from camera to screen point
-            # Since camera is at origin, direction = screen_point
             dx = u
             dy = v
             dz = 1.0
 
             # Normalize the ray direction to have length 1
-            # Length (magnitude) = sqrt(x^2 + y^2 + z^2)
             length = math.sqrt(dx * dx + dy * dy + dz * dz)
             dx = dx / length
             dy = dy / length
             dz = dz / length
 
-            # Create ray for this pixel with normalized direction
-            ray = Ray(origin=camera_origin, direction=[dx, dy, dz])
+            # Create and store ray for this pixel
+            rays[pixel_y][pixel_x] = Ray(origin=camera_origin, direction=[dx, dy, dz])
+
+    return rays
+
+
+def update_framebuffer():
+    """Update the framebuffer data. Currently just black, will contain ray marching later."""
+    global write_buffer, precalculated_rays
+
+    # Build rotation matrix once per frame (same for all pixels)
+    # Combine rotation around Y-axis and tilted X-axis (25 degrees)
+    rotation_y = rotation_matrix_y(-rotation_angle)
+    # rotation_x = rotation_matrix_x(-rotation_angle)
+
+    # Combine rotations: first Y, then X
+    # inverse_rotation = mat3_mul_mat3(rotation_x, rotation_y)
+    inverse_rotation = rotation_y
+
+    # Iterate over every pixel
+    for pixel_y in range(HEIGHT):
+        for pixel_x in range(WIDTH):
+            # Get pre-calculated ray for this pixel
+            ray = precalculated_rays[pixel_y][pixel_x]
 
             # Convert ray into object space of cube so we can calculate
             # whether they intersect
@@ -433,7 +448,7 @@ def update(dt):
 
 def initialize():
     """Initialize all global resources."""
-    global window, write_buffer, read_buffer, cube
+    global window, write_buffer, read_buffer, cube, precalculated_rays
 
     # Create window
     window = pyglet.window.Window(width=WIDTH, height=HEIGHT, caption="Ray Marching")
@@ -446,6 +461,9 @@ def initialize():
     # Object space: from (-1, -1, -1) to (1, 1, 1)
     # World space: positioned at (0, 0, 3)
     cube = Cube(world_position=[0.0, 0.0, 3.0])
+
+    # Pre-calculate all rays once for all pixels
+    precalculated_rays = precalculate_rays()
 
     # Register event handlers
     window.event(on_draw)
