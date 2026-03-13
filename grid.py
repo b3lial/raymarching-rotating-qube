@@ -45,6 +45,19 @@ def on_draw():
         x_bottom = X_MIN + (X_MAX - X_MIN) * i / NUM_V
         lines.append(pyglet.shapes.Line(x_bottom, 0, VP_X, HORIZON, color=COLOR_LINE, batch=batch))
 
+    # Horizon glow — fading band above and below the horizon
+    GLOW_COLOR  = (120, 200, 255)
+    GLOW_STEPS  = 40
+    GLOW_SPREAD = 80   # pixels the glow extends above/below horizon
+
+    for g in range(GLOW_STEPS):
+        t_glow = g / GLOW_STEPS
+        alpha  = int(160 * (1 - t_glow) ** 2)
+        c = (*GLOW_COLOR, alpha)
+        offset = int(GLOW_SPREAD * t_glow)
+        lines.append(pyglet.shapes.Line(0, HORIZON + offset, WIDTH, HORIZON + offset, color=c, batch=batch))
+        lines.append(pyglet.shapes.Line(0, HORIZON - offset, WIDTH, HORIZON - offset, color=c, batch=batch))
+
     batch.draw()
 
 def update(dt):
