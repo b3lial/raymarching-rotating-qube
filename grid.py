@@ -1,4 +1,5 @@
 import pyglet
+import random
 
 WIDTH, HEIGHT = 800, 600
 window = pyglet.window.Window(WIDTH, HEIGHT, "Infinity Grid")
@@ -15,6 +16,9 @@ X_MAX   =  WIDTH * 1.5
 
 COLOR_LINE = (200, 200, 200)
 COLOR_DIM  = (60, 60, 60)
+
+random.seed(42)
+STARS = [(random.randint(0, WIDTH), random.randint(int(HORIZON) + 10, HEIGHT), random.randint(160, 255)) for _ in range(60)]
 
 scroll_t = 0.0
 
@@ -45,6 +49,10 @@ def on_draw():
         x_bottom = X_MIN + (X_MAX - X_MIN) * i / NUM_V
         lines.append(pyglet.shapes.Line(x_bottom, 0, VP_X, HORIZON, color=COLOR_LINE, batch=batch))
 
+    # Stars — random dots in the sky
+    for sx, sy, brightness in STARS:
+        lines.append(pyglet.shapes.Circle(sx, sy, 1, color=(brightness, brightness, brightness), batch=batch))
+
     # Horizon glow — fading band above and below the horizon
     GLOW_COLOR  = (120, 200, 255)
     GLOW_STEPS  = 40
@@ -55,7 +63,6 @@ def on_draw():
         alpha  = int(160 * (1 - t_glow) ** 2)
         c = (*GLOW_COLOR, alpha)
         offset = int(GLOW_SPREAD * t_glow)
-        lines.append(pyglet.shapes.Line(0, HORIZON + offset, WIDTH, HORIZON + offset, color=c, batch=batch))
         lines.append(pyglet.shapes.Line(0, HORIZON - offset, WIDTH, HORIZON - offset, color=c, batch=batch))
 
     batch.draw()
